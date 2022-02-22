@@ -204,6 +204,7 @@ class AVAMeter(object):
             self.categories,
             groundtruth=groundtruth,
             video_idx_to_name=self.video_idx_to_name,
+            output_dir=self.output_dir,
         )
         if log:
             stats = {"mode": self.mode, "map": self.full_map}

@@ -29,6 +29,7 @@ from __future__ import (
     print_function,
     unicode_literals,
 )
+import os
 import csv
 import logging
 import numpy as np
@@ -144,6 +145,7 @@ def evaluate_ava(
     groundtruth=None,
     video_idx_to_name=None,
     name="latest",
+    output_dir=".",
 ):
     """Run AVA evaluation given numpy arrays."""
 
@@ -162,8 +164,8 @@ def evaluate_ava(
         "Evaluating with %d unique detection frames" % len(detections[0])
     )
 
-    write_results(detections, "detections_%s.csv" % name)
-    write_results(groundtruth, "groundtruth_%s.csv" % name)
+    write_results(detections, os.path.join(output_dir, "detections_%s.csv" % name))
+    write_results(groundtruth, os.path.join(output_dir, "groundtruth_%s.csv" % name))
 
     results = run_evaluation(categories, groundtruth, detections, excluded_keys)
 
