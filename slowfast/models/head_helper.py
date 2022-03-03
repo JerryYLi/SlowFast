@@ -406,3 +406,81 @@ class TransformerBasicHead(nn.Module):
         if not self.training:
             x = self.act(x)
         return x
+
+
+class TransformerRoIHead(nn.Module):
+    """
+    Transformer RoI head
+    """
+
+    def __init__(
+        self,
+        dim_in,
+        num_classes,
+        pool_size,
+        resolution,
+        scale_factor,
+        dropout_rate=0.0,
+        act_func="softmax",
+        aligned=True
+    ):
+        """
+        Perform linear projection and activation as head for tranformers.
+        Args:
+            dim_in (int): the channel dimension of the input to the head.
+            num_classes (int): the channel dimensions of the output to the head.
+            dropout_rate (float): dropout rate. If equal to 0.0, perform no
+                dropout.
+            act_func (string): activation function to use. 'softmax': applies
+                softmax on the output. 'sigmoid': applies sigmoid on the output.
+        """
+        super(TransformerRoIHead, self).__init__()
+        if dropout_rate > 0.0:
+            self.dropout = nn.Dropout(dropout_rate)
+        self.projection = nn.Linear(dim_in, num_classes, bias=True)
+
+        # RoI align
+        self.t_pool = nn.AvgPool3d([pool_size[0], 1, 1], stride=1)
+        self.roi_align = ROIAlign(
+            resolution,
+            spatial_scale=1.0 / scale_factor,
+            sampling_ratio=0,
+            aligned=aligned,
+        )
+        # TODO: self-attention before spatial pool
+        self.s_pool = nn.MaxPool2d(resolution, stride=1)
+
+        # Softmax for evaluation and testing.
+        if act_func == "softmax":
+            self.act = nn.Softmax(dim=1)
+        elif act_func == "sigmoid":
+            self.act = nn.Sigmoid()
+        else:
+            raise NotImplementedError(
+                "{} is not supported as an activation"
+                "function.".format(act_func)
+            )
+
+    def forward(self, x, bboxes, thw):
+        x = x[:, 1:]  # remove class token
+        x = x.permute(0, 2, 1)  # BNC -> BCN
+        x = x.view(*x.shape[:2], *thw)  # BCN -> BCTHW
+        
+        # temporal pool
+        x = self.t_pool(x)  # BCTHW -> BC1HW
+        assert x.shape[2] == 1
+        x = torch.squeeze(x, 2)  # BC1HW -> BCHW
+
+        # RoI align
+        x = self.roi_align(x, bboxes)
+
+        # spatial pool
+        x = self.s_pool(x)
+        assert x.shape[2] == 1 and x.shape[3] == 1
+        x = x.view(x.shape[0], -1)  # BCHW -> BC
+
+        if hasattr(self, "dropout"):
+            x = self.dropout(x)
+        x = self.projection(x)
+        x = self.act(x)
+        return x

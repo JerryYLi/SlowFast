@@ -11,6 +11,7 @@ from torch.nn.init import trunc_normal_
 
 import slowfast.utils.weight_init_helper as init_helper
 from slowfast.models.attention import MultiScaleBlock
+from slowfast.models.attention_qkv import MultiScaleBlock as MultiScaleBlockQKV
 from slowfast.models.batchnorm_helper import get_norm
 from slowfast.models.stem_helper import PatchEmbed
 from slowfast.models.utils import round_width, validate_checkpoint_wrapper_import
@@ -791,6 +792,7 @@ class MViT(nn.Module):
         # Get parameters.
         assert cfg.DATA.TRAIN_CROP_SIZE == cfg.DATA.TEST_CROP_SIZE
         self.cfg = cfg
+        self.enable_detection = cfg.DETECTION.ENABLE
         pool_first = cfg.MVIT.POOL_FIRST
         # Prepare input.
         spatial_size = cfg.DATA.TRAIN_CROP_SIZE
@@ -928,7 +930,8 @@ class MViT(nn.Module):
                 dim_mul[i + 1],
                 divisor=round_width(num_heads, head_mul[i + 1]),
             )
-            attention_block = MultiScaleBlock(
+            attention_cls = MultiScaleBlockQKV if 'kinetics/pretrained' in cfg.TRAIN.CHECKPOINT_FILE_PATH or 'kinetics/pretrained' in cfg.TEST.CHECKPOINT_FILE_PATH else MultiScaleBlock
+            attention_block = attention_cls(
                 dim=embed_dim,
                 dim_out=dim_out,
                 num_heads=num_heads,
@@ -952,12 +955,24 @@ class MViT(nn.Module):
         embed_dim = dim_out
         self.norm = norm_layer(embed_dim)
 
-        self.head = head_helper.TransformerBasicHead(
-            embed_dim,
-            num_classes,
-            dropout_rate=cfg.MODEL.DROPOUT_RATE,
-            act_func=cfg.MODEL.HEAD_ACT,
-        )
+        if cfg.DETECTION.ENABLE:
+            self.head = head_helper.TransformerRoIHead(
+                embed_dim,
+                num_classes,
+                pool_size=[cfg.DATA.NUM_FRAMES // self.patch_stride[0], 1, 1],
+                resolution=[cfg.DETECTION.ROI_XFORM_RESOLUTION] * 2,
+                scale_factor=cfg.DETECTION.SPATIAL_SCALE_FACTOR,
+                dropout_rate=cfg.MODEL.DROPOUT_RATE,
+                act_func=cfg.MODEL.HEAD_ACT,
+                aligned=cfg.DETECTION.ALIGNED,
+            )
+        else:
+            self.head = head_helper.TransformerBasicHead(
+                embed_dim,
+                num_classes,
+                dropout_rate=cfg.MODEL.DROPOUT_RATE,
+                act_func=cfg.MODEL.HEAD_ACT,
+            )
         if self.sep_pos_embed:
             trunc_normal_(self.pos_embed_spatial, std=0.02)
             trunc_normal_(self.pos_embed_temporal, std=0.02)
@@ -1003,7 +1018,7 @@ class MViT(nn.Module):
         else:
             return {}
 
-    def forward(self, x):
+    def forward(self, x, bboxes=None):
         x = x[0]
         x = self.patch_embed(x)
 
@@ -1043,10 +1058,13 @@ class MViT(nn.Module):
             x, thw = blk(x, thw)
 
         x = self.norm(x)
-        if self.cls_embed_on:
-            x = x[:, 0]
-        else:
-            x = x.mean(1)
 
-        x = self.head(x)
+        if self.enable_detection:
+            x = self.head(x, bboxes, thw)
+        else:
+            if self.cls_embed_on:
+                x = x[:, 0]
+            else:
+                x = x.mean(1)
+            x = self.head(x)
         return x
