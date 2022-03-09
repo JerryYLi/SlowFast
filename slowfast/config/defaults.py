@@ -685,6 +685,9 @@ _C.AVA.TRAIN_USE_COLOR_AUGMENTATION = False
 # method (otherwise combine with color jitter method).
 _C.AVA.TRAIN_PCA_JITTER_ONLY = True
 
+# Whether to do center crop instead of full-resolution input during test.
+_C.AVA.TEST_CENTER_CROP = False
+
 # Whether to do horizontal flipping during test.
 _C.AVA.TEST_FORCE_FLIP = False
 

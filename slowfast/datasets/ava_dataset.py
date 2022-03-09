@@ -42,6 +42,7 @@ class Ava(torch.utils.data.Dataset):
             self._pca_eigvec = cfg.DATA.TRAIN_PCA_EIGVEC
         else:
             self._crop_size = cfg.DATA.TEST_CROP_SIZE
+            self._center_crop = cfg.AVA.TEST_CENTER_CROP
             self._test_force_flip = cfg.AVA.TEST_FORCE_FLIP
 
         self._load_data(cfg)
@@ -175,6 +176,11 @@ class Ava(torch.utils.data.Dataset):
                     self._crop_size, boxes[0], height, width
                 )
             ]
+
+            if self._center_crop:
+                imgs, boxes = cv2_transform.spatial_shift_crop_list(
+                    self._crop_size, imgs, 1, boxes=boxes
+                )
 
             if self._test_force_flip:
                 imgs, boxes = cv2_transform.horizontal_flip_list(
