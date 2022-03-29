@@ -929,7 +929,7 @@ class MViT(nn.Module):
                 dim_mul[i + 1],
                 divisor=round_width(num_heads, head_mul[i + 1]),
             )
-            attention_cls = MultiScaleBlockQKV if 'kinetics/pretrained' in cfg.TRAIN.CHECKPOINT_FILE_PATH or 'kinetics/pretrained' in cfg.TEST.CHECKPOINT_FILE_PATH else MultiScaleBlock
+            attention_cls = attention_cls = self._get_attn_cls(cfg)
             attention_block = attention_cls(
                 dim=embed_dim,
                 dim_out=dim_out,
@@ -982,6 +982,16 @@ class MViT(nn.Module):
         if self.cls_embed_on:
             trunc_normal_(self.cls_token, std=0.02)
         self.apply(self._init_weights)
+
+    def _get_attn_cls(self, cfg):
+        def _is_qkv_attn(ckp_path):
+            ckp = torch.load(ckp_path, map_location='cpu')
+            return any('.qkv.weight' in k for k in ckp['model_state'])
+
+        if _is_qkv_attn(cfg.TRAIN.CHECKPOINT_FILE_PATH) or _is_qkv_attn(cfg.TEST.CHECKPOINT_FILE_PATH):
+            return MultiScaleBlockQKV
+        else:
+            return MultiScaleBlock
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
