@@ -921,6 +921,7 @@ class MViT(nn.Module):
         if cfg.MODEL.ACT_CHECKPOINT:
             validate_checkpoint_wrapper_import(checkpoint_wrapper)
 
+        attention_cls = self._get_attn_cls(cfg)
         for i in range(depth):
             num_heads = round_width(num_heads, head_mul[i])
             embed_dim = round_width(embed_dim, dim_mul[i], divisor=num_heads)
@@ -929,7 +930,6 @@ class MViT(nn.Module):
                 dim_mul[i + 1],
                 divisor=round_width(num_heads, head_mul[i + 1]),
             )
-            attention_cls = attention_cls = self._get_attn_cls(cfg)
             attention_block = attention_cls(
                 dim=embed_dim,
                 dim_out=dim_out,
