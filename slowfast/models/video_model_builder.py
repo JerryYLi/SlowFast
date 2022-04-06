@@ -985,6 +985,8 @@ class MViT(nn.Module):
 
     def _get_attn_cls(self, cfg):
         def _is_qkv_attn(ckp_path):
+            if not ckp_path:
+                return False
             ckp = torch.load(ckp_path, map_location='cpu')
             return any('.qkv.weight' in k for k in ckp['model_state'])
 

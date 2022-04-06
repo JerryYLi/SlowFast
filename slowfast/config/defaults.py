@@ -4,7 +4,8 @@
 """Configs."""
 from fvcore.common.config import CfgNode
 
-from . import custom_config
+# from . import custom_config
+from . import epic_config
 
 # -----------------------------------------------------------------------------
 # Config definition
@@ -939,7 +940,8 @@ _C.DEMO.COMMON_CLASS_NAMES = [
 _C.DEMO.SLOWMO = 1
 
 # Add custom config with default values.
-custom_config.add_custom_config(_C)
+# custom_config.add_custom_config(_C)
+epic_config.add_epic_config(_C)
 
 
 def assert_and_infer_cfg(cfg):
