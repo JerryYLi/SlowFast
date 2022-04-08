@@ -77,6 +77,19 @@ class Predictor:
             cv2_transform.scale(self.cfg.DATA.TEST_CROP_SIZE, frame)
             for frame in frames
         ]
+
+        # Center crop
+        if self.cfg.DEMO.CENTER_CROP:
+            if bboxes is not None:
+                frames, bboxes = cv2_transform.spatial_shift_crop_list(
+                    self.cfg.DATA.TEST_CROP_SIZE, frames, 1, boxes=[bboxes]
+                )
+                bboxes = bboxes[0]
+            else:
+                frames, _ = cv2_transform.spatial_shift_crop_list(
+                    self.cfg.DATA.TEST_CROP_SIZE, frames, 1
+                )
+
         inputs = process_cv2_inputs(frames, self.cfg)
         if bboxes is not None:
             index_pad = torch.full(

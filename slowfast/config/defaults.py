@@ -898,6 +898,8 @@ _C.DEMO.INPUT_FORMAT = "BGR"
 _C.DEMO.CLIP_VIS_SIZE = 10
 # Number of processes to run video visualizer.
 _C.DEMO.NUM_VIS_INSTANCES = 2
+# Whether to do center crop instead of full-resolution input during demo.
+_C.DEMO.CENTER_CROP = False
 
 # Path to pre-computed predicted boxes
 _C.DEMO.PREDS_BOXES = ""
