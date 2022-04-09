@@ -94,7 +94,8 @@ def get_sequence(start_frame, stop_frame, half_len,
         center_frame = random.randint(start_frame, stop_frame)
     else:
         center_frame = (stop_frame + start_frame) // 2
-    seq = range(center_frame - half_len, center_frame + half_len, sample_rate)
+    # seq = range(center_frame - half_len, center_frame + half_len, sample_rate)
+    seq = list(range(center_frame - half_len, center_frame + half_len, sample_rate))
 
     for seq_idx in range(len(seq)):
         if seq[seq_idx] < 0:
