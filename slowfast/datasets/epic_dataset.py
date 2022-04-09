@@ -210,5 +210,5 @@ class Epic(torch.utils.data.Dataset):
             inverse_uniform_sampling=self.cfg.DATA.INV_UNIFORM_SAMPLE,
         )
 
-        imgs = utils.pack_pathway_output(self.cfg, imgs)
-        return imgs, label, idx, {}
+        frames = utils.pack_pathway_output(self.cfg, frames)
+        return frames, label, idx, {}
