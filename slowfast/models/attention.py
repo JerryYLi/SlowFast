@@ -150,7 +150,7 @@ class MultiScaleAttention(nn.Module):
         else:
             raise NotImplementedError(f"Unsupported model {mode}")
 
-    def forward(self, x, thw_shape):
+    def forward(self, x, thw_shape, ret_attn):
         B, N, C = x.shape
         if self.pool_first:
             x = x.reshape(B, N, self.num_heads, C // self.num_heads).permute(
@@ -243,7 +243,10 @@ class MultiScaleAttention(nn.Module):
         x = self.proj(x)
         if self.drop_rate > 0.0:
             x = self.proj_drop(x)
-        return x, q_shape
+        if ret_attn:
+            return x, q_shape, (attn, k_shape)
+        else:
+            return x, q_shape, None
 
 
 class MultiScaleBlock(nn.Module):
@@ -318,8 +321,8 @@ class MultiScaleBlock(nn.Module):
             else None
         )
 
-    def forward(self, x, thw_shape):
-        x_block, thw_shape_new = self.attn(self.norm1(x), thw_shape)
+    def forward(self, x, thw_shape, ret_attn=False):
+        x_block, thw_shape_new, _ = self.attn(self.norm1(x), thw_shape, ret_attn)
         x_res, _ = attention_pool(
             x, self.pool_skip, thw_shape, has_cls_embed=self.has_cls_embed
         )

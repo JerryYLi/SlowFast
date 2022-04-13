@@ -1029,7 +1029,7 @@ class MViT(nn.Module):
         else:
             return {}
 
-    def forward(self, x, bboxes=None):
+    def forward(self, x, bboxes=None, ret_attn=False):
         x = x[0]
         x = self.patch_embed(x)
 
@@ -1066,7 +1066,7 @@ class MViT(nn.Module):
 
         thw = [T, H, W]
         for blk in self.blocks:
-            x, thw = blk(x, thw)
+            x, thw = blk(x, thw, ret_attn)
 
         x = self.norm(x)
 

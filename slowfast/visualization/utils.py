@@ -6,11 +6,120 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from sklearn.metrics import confusion_matrix
+import math
 
 import slowfast.utils.logging as logging
 from slowfast.datasets.utils import pack_pathway_output, tensor_normalize
 
 logger = logging.get_logger(__name__)
+
+
+class GetAttentionWeight:
+    """
+    Get attention weights from specified layers from a transformer model.
+    """
+
+    def __init__(self, model, layers):
+        """
+        Args:
+            model (nn.Module): the model containing layers to obtain weights and activations from.
+            layers (list of strings): a list of layer names to obtain weights and activations from.
+                Names are hierarchical, separated by /. For example, If a layer follow a path
+                "s1" ---> "pathway0_stem" ---> "conv", the layer path is "s1/pathway0_stem/conv".
+        """
+        self.model = model
+        self.hooks = {}
+        self.layers_names = layers
+        # eval mode
+        self.model.eval()
+        self._register_hooks()
+
+    def _get_layer(self, layer_name):
+        """
+        Return a layer (nn.Module Object) given a hierarchical layer name, separated by /.
+        Args:
+            layer_name (str): the name of the layer.
+        """
+        layer_ls = layer_name.split("/")
+        prev_module = self.model
+        for layer in layer_ls:
+            prev_module = prev_module._modules[layer]
+
+        return prev_module
+
+    def _register_single_hook(self, layer_name):
+        """
+        Register hook to a layer, given layer_name, to obtain activations.
+        Args:
+            layer_name (str): name of the layer.
+        """
+
+        def get_attn(module, input, output):
+            '''
+            output format: (output1, ..., outputk, attn)
+            '''
+            *output, (attn, thw) = output
+            attn = attn.clone().detach()
+            attn = attn.mean(1).mean(-2)[:, 1:]
+            # attn = attn.view(attn.shape[0], *thw).mean(1)
+            attn = attn.view(attn.shape[0], *thw)
+            max_attn = attn.amax((1, 2, 3), keepdim=True)
+            attn /= max_attn.expand_as(attn)
+            # attn /= attn.max(1, keepdim=True)[0].max(2, keepdim=True)[0]
+            self.hooks[layer_name] = attn
+
+        layer = get_layer(self.model, layer_name)
+        layer.register_forward_hook(get_attn)
+
+    def _register_hooks(self):
+        """
+        Register hooks to layers in `self.layers_names`.
+        """
+        for layer_name in self.layers_names:
+            self._register_single_hook(layer_name)
+
+    def get_attention(self, input, bboxes=None):
+        """
+        Obtain all attention weights from layers that we register hooks for.
+        Args:
+            input (tensors, list of tensors): the model input.
+            bboxes (Optional): Bouding boxes data that might be required
+                by the model.
+        Returns:
+            attention_dict (Python dictionary): a dictionary of the pair
+                {layer_name: list of activations}, where activations are outputs returned
+                by the layer.
+        """
+        input_clone = [inp.clone() for inp in input]
+        if bboxes is not None:
+            preds = self.model(input_clone, bboxes, ret_attn=True)
+        else:
+            preds = self.model(input_clone, ret_attn=True)
+
+        attention_dict = {}
+        for layer_name, hook in self.hooks.items():
+            # list of activations for each instance.
+            attention_dict[layer_name] = hook
+
+        return attention_dict, preds
+
+    def get_weights(self):
+        """
+        Returns weights from registered layers.
+        Returns:
+            weights (Python dictionary): a dictionary of the pair
+            {layer_name: weight}, where weight is the weight tensor.
+        """
+        weights = {}
+        for layer in self.layers_names:
+            cur_layer = get_layer(self.model, layer)
+            if hasattr(cur_layer, "weight"):
+                weights[layer] = cur_layer.weight.clone().detach()
+            else:
+                logger.error(
+                    "Layer {} does not have weight attribute.".format(layer)
+                )
+        return weights
 
 
 def get_confusion_matrix(preds, labels, num_classes, normalize="true"):
