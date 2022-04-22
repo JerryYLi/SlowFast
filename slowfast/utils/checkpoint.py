@@ -303,10 +303,14 @@ def load_checkpoint(
         else:
             if clear_name_pattern:
                 for item in clear_name_pattern:
+                    if isinstance(item, str):
+                        item_re = ""
+                    else:
+                        item, item_re = item
                     model_state_dict_new = OrderedDict()
                     for k in checkpoint["model_state"]:
                         if item in k:
-                            k_re = k.replace(item, "")
+                            k_re = k.replace(item, item_re)
                             model_state_dict_new[k_re] = checkpoint[
                                 "model_state"
                             ][k]
