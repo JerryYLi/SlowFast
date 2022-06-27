@@ -957,7 +957,6 @@ class MViT(nn.Module):
         if cfg.MODEL.ACT_CHECKPOINT:
             validate_checkpoint_wrapper_import(checkpoint_wrapper)
 
-        attention_cls = self._get_attn_cls(cfg)
         for i in range(depth):
             num_heads = round_width(num_heads, head_mul[i])
             if cfg.MVIT.DIM_MUL_IN_ATT:
@@ -972,7 +971,7 @@ class MViT(nn.Module):
                     dim_mul[i + 1],
                     divisor=round_width(num_heads, head_mul[i + 1]),
                 )
-            attention_block = attention_cls(
+            attention_block = MultiScaleBlock(
                 dim=embed_dim,
                 dim_out=dim_out,
                 num_heads=num_heads,
@@ -1038,18 +1037,6 @@ class MViT(nn.Module):
         if self.cls_embed_on:
             trunc_normal_(self.cls_token, std=0.02)
         self.apply(self._init_weights)
-
-    def _get_attn_cls(self, cfg):
-        def _is_qkv_attn(ckp_path):
-            if not ckp_path:
-                return False
-            ckp = torch.load(ckp_path, map_location='cpu')
-            return any('.qkv.weight' in k for k in ckp['model_state'])
-
-        if _is_qkv_attn(cfg.TRAIN.CHECKPOINT_FILE_PATH) or _is_qkv_attn(cfg.TEST.CHECKPOINT_FILE_PATH):
-            return MultiScaleBlockQKV
-        else:
-            return MultiScaleBlock
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
