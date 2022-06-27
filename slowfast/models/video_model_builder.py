@@ -12,7 +12,6 @@ from torch.nn.init import trunc_normal_
 
 import slowfast.utils.weight_init_helper as init_helper
 from slowfast.models.attention import MultiScaleBlock
-from slowfast.models.attention_qkv import MultiScaleBlock as MultiScaleBlockQKV
 from slowfast.models.batchnorm_helper import get_norm
 from slowfast.models.utils import (
     round_width,
